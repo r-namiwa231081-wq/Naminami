@@ -3,57 +3,699 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ロイロノート・スタイル - クラウド学習キャンバス</title>
+  <title>水のかさを同じにしよう！ 🥤</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- QRCode.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Google Fonts: Zen Maru Gothic for child-friendly design -->
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
-    .bg-grid { background-size: 30px 30px; background-image: radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px); }
+    body {
+      font-family: 'Zen Maru Gothic', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* 水のなめらかな高さ変更アニメーション */
+    .liquid {
+      transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+    }
+
+    /* 水面の波ゆれアニメーション */
+    @keyframes wave {
+      0% { transform: translateX(0) scaleY(1); }
+      50% { transform: translateX(-25%) scaleY(1.1); }
+      100% { transform: translateX(-50%) scaleY(1); }
+    }
+
+    .wave-effect {
+      position: absolute;
+      top: -6px;
+      left: 0;
+      width: 200%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 40%;
+      animation: wave 3s infinite linear;
+    }
+
+    /* 選択されたコップのアニメーション */
+    @keyframes pulse-border {
+      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+      50% { border-color: #fbbf24; box-shadow: 0 0 25px rgba(251, 191, 36, 0.9); }
+    }
+
+    .selected-cup {
+      animation: pulse-border 1.2s infinite ease-in-out;
+      transform: translateY(-6px);
+    }
+
+    /* コップのリアルな目盛りスタイル */
+    .glass-cup {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(240, 249, 255, 0.4) 100%);
+      border: 4px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(4px);
+    }
+
+    /* 紙吹雪用のキャンバス */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 50;
+    }
   </style>
 </head>
-<body class="h-screen w-screen overflow-hidden bg-slate-100 flex flex-col text-slate-800">
+<body class="bg-gradient-to-b from-sky-100 via-indigo-50 to-amber-50 min-h-screen text-slate-800 pb-12 flex flex-col">
 
-  <!-- ヘッダーバー -->
-  <header class="h-14 bg-blue-600 text-white flex items-center justify-between px-4 shadow-md shrink-0">
-    <div class="flex items-center gap-3">
-      <span class="font-bold text-lg"><i class="fa-solid fa-note-sticky text-yellow-300"></i> ロイロノート・シンプル</span>
-      <!-- ロール切替 -->
-      <div class="flex bg-blue-800 rounded-lg p-0.5 text-xs">
-        <button id="btn-role-student" onclick="switchRole('student')" class="px-3 py-1 rounded bg-white text-blue-700 font-bold">児童・生徒</button>
-        <button id="btn-role-teacher" onclick="switchRole('teacher')" class="px-3 py-1 rounded text-blue-200 hover:text-white font-bold">先生</button>
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ヘッダー -->
+  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-sky-100 py-4 px-4 sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="text-3xl">🥤</span>
+        <h1 class="text-xl sm:text-2xl font-black bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+          水のかさを同じにしよう！
+        </h1>
       </div>
-    </div>
 
-    <!-- 中央：提出・配付アクションボタン -->
-    <div class="flex items-center gap-2">
-      <!-- 児童用：提出 -->
-      <button id="btn-submit" onclick="openSubmitModal()" class="bg-amber-500 hover:bg-amber-600 px-4 py-1.5 rounded-lg text-sm font-bold shadow">
-        <i class="fa-solid fa-paper-plane"></i> 提出する
-      </button>
-
-      <!-- 先生用：全員へ配付 ＆ 管理画面 -->
-      <button id="btn-distribute" onclick="distributeToAll()" class="hidden bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow">
-        <i class="fa-solid fa-share-nodes"></i> ③ 全員へ資料配信
-      </button>
-      <button id="btn-teacher-dash" onclick="openTeacherDash()" class="hidden bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow">
-        <i class="fa-solid fa-boxes-packing"></i> 教員管理 (提出箱・アカウント)
-      </button>
-    </div>
-
-    <!-- 右側：ログイン表示 -->
-    <div class="flex items-center gap-2 text-xs">
-      <span id="user-display" class="font-bold bg-blue-800 px-3 py-1 rounded-lg">ログイン中: 児童 太郎</span>
-      <button onclick="clearCanvas()" class="p-2 hover:bg-blue-700 rounded-lg" title="キャンバスクリア"><i class="fa-solid fa-trash-can"></i></button>
+      <!-- 右側アクション：問題出す・リセット -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <button id="btn-problem" onclick="generateProblem()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl shadow-md transition flex items-center gap-1">
+          <span>🎲</span> もんだいをだす
+        </button>
+        <button id="btn-auto-balance" onclick="autoBalance()" class="bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl shadow-md transition flex items-center gap-1" title="すべての水を自動で同じ量にします">
+          <span>✨</span> じどうで同じにする
+        </button>
+        <button id="btn-reset" onclick="resetAll()" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-bold px-3 py-2 rounded-xl transition">
+          🗑️ からっぽ
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- メインエリア -->
-  <div class="flex-1 flex overflow-hidden">
-    <!-- 左サイドバー：② カード作成パレット -->
-    <aside class="w-56 bg-white border-r border-slate-200 p-3 flex flex-col gap-2 shrink-0">
-      <span class="text-xs font-bold text-slate-500">② カード作成</span>
-      <button onclick="addCard('text')" class="p-3 bg-amber-50 hover:bg
+  <main class="max-w-5xl mx-auto px-4 mt-6 flex-1 flex flex-col items-center w-full">
+
+    <!-- 設定 & 学習サポートコントロール -->
+    <div class="w-full bg-white/90 rounded-2xl p-4 sm:p-5 shadow-lg border border-sky-100 mb-6 transition-all">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        
+        <!-- コップの数選択 -->
+        <div class="flex items-center gap-3">
+          <span class="font-bold text-slate-700 flex items-center gap-1">
+            <span>🥤</span> コップの数:
+          </span>
+          <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
+            <button onclick="setCupCount(2)" class="cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base" data-count="2">2個</button>
+            <button onclick="setCupCount(3)" class="cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base" data-count="3">3個</button>
+            <button onclick="setCupCount(4)" class="cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base" data-count="4">4個</button>
+            <button onclick="setCupCount(5)" class="cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base" data-count="5">5個</button>
+            <button onclick="setCupCount(6)" class="cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base" data-count="6">6個</button>
+          </div>
+        </div>
+
+        <!-- 単位切り替え -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-500">たんい:</span>
+          <button onclick="setUnit('dL')" id="unit-dL" class="px-2.5 py-1 rounded-lg text-xs font-bold transition border">dL (デシリットル)</button>
+          <button onclick="setUnit('目盛り')" id="unit-scale" class="px-2.5 py-1 rounded-lg text-xs font-bold transition border">目盛り</button>
+        </div>
+
+        <!-- 式表示トグル -->
+        <button onclick="toggleFormula()" id="btn-formula-toggle" class="text-xs font-bold bg-sky-50 text-sky-700 hover:bg-sky-100 px-3 py-1.5 rounded-lg border border-sky-200 transition flex items-center gap-1">
+          <span>💡</span> <span id="formula-toggle-text">計算の式をひょうじ</span>
+        </button>
+      </div>
+
+      <!-- 式・計算サポート（計算式の理解を助ける） -->
+      <div id="formula-box" class="hidden mt-4 pt-3 border-t border-slate-100 bg-sky-50/70 rounded-xl p-3 text-center">
+        <div class="flex items-center justify-center gap-2 flex-wrap text-base sm:text-lg font-bold text-sky-900">
+          <span>（ 合計 <span id="calc-total" class="text-sky-600 underline decoration-2">0</span> <span class="unit-text">dL</span> ）</span>
+          <span>÷</span>
+          <span>（ コップ <span id="calc-count" class="text-indigo-600">3</span> 個 ）</span>
+          <span>＝</span>
+          <span>1つぶん <span id="calc-avg" class="text-amber-600 text-xl sm:text-2xl font-black">0</span> <span class="unit-text">dL</span></span>
+        </div>
+        <p class="text-xs text-sky-600 mt-1">すべての水をあわせて、コップの数で均等にわると、1つぶんの量がもとめられるよ！</p>
+      </div>
+    </div>
+
+    <!-- 操作ナビゲーション案内メッセージ -->
+    <div id="guide-message" class="mb-4 text-center text-slate-600 font-bold bg-amber-100/80 px-4 py-2 rounded-full border border-amber-200 shadow-sm animate-pulse text-sm sm:text-base">
+      💡 容器をクリックして選択し、別の容器に移し替えて「同じかさ」にしよう！
+    </div>
+
+    <!-- 成功おめでとうモーダル / バナー -->
+    <div id="success-banner" class="hidden mb-6 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white p-4 rounded-2xl shadow-xl text-center transform transition-all duration-500 scale-100 border-2 border-emerald-300">
+      <div class="text-2xl sm:text-3xl font-black mb-1 flex items-center justify-center gap-2">
+        <span>🎉</span> ぴったり！みんな同じ量になったね！ <span>🎉</span>
+      </div>
+      <p class="text-emerald-100 font-bold text-base sm:text-lg">
+        1つのコップあたり <span id="success-amount" class="text-yellow-300 text-2xl font-black">5</span> <span class="unit-text">dL</span> になりました！
+      </p>
+    </div>
+
+    <!-- 大きな容器エリア -->
+    <div id="tank-container" class="flex flex-wrap items-end justify-center w-full mb-6">
+      <!-- JSで動的に生成 -->
+    </div>
+
+    <!-- コップ並びエリア -->
+    <div id="cups-container" class="flex flex-wrap items-end justify-center gap-3 sm:gap-6 w-full py-4 min-h-[360px]">
+      <!-- JSで動的に生成 -->
+    </div>
+
+  </main>
+
+  <!-- フッター／説明 -->
+  <footer class="mt-auto py-6 text-center text-slate-500 text-xs sm:text-sm">
+    <p>小学校 算数 学習ツール</p>
+  </footer>
+
+  <script>
+    // --- アプリの状態管理 ---
+    let cupCount = 3;
+    let cups = [4, 7, 1]; // 各コップの水の量 (0 ~ 10)
+    let tank = 0; // 大きな容器の水の量
+    const TANK_MAX = 60; // 大きな容器の最大容量
+    let selectedType = null; // 'cup' または 'tank'
+    let selectedIndex = null; // コップのインデックス
+    let unit = 'dL'; // 'dL' または '目盛り'
+    let showFormula = false;
+    const MAX_CAPACITY = 10; // コップの最大容量
+
+    // 初期化
+    window.onload = () => {
+      initConfetti();
+      renderContainers();
+      updateCalcInfo();
+    };
+
+    // コップ数の変更
+    function setCupCount(count) {
+      if (count < 2 || count > 6) return;
+      cupCount = count;
+      selectedType = null;
+      selectedIndex = null;
+
+      // 配列の長さを調整
+      if (cups.length < count) {
+        while (cups.length < count) cups.push(0);
+      } else {
+        cups = cups.slice(0, count);
+      }
+
+      renderContainers();
+      updateCalcInfo();
+      checkSuccess();
+    }
+
+    // 単位変更
+    function setUnit(newUnit) {
+      unit = newUnit;
+      document.querySelectorAll('.unit-text').forEach(el => el.textContent = unit);
+      document.getElementById('unit-dL').className = `px-2.5 py-1 rounded-lg text-xs font-bold transition border ${unit === 'dL' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-300'}`;
+      document.getElementById('unit-scale').className = `px-2.5 py-1 rounded-lg text-xs font-bold transition border ${unit === '目盛り' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-300'}`;
+      renderContainers();
+    }
+
+    // 式の表示切り替え
+    function toggleFormula() {
+      showFormula = !showFormula;
+      const box = document.getElementById('formula-box');
+      const text = document.getElementById('formula-toggle-text');
+      if (showFormula) {
+        box.classList.remove('hidden');
+        text.textContent = '計算の式をかくす';
+      } else {
+        box.classList.add('hidden');
+        text.textContent = '計算の式をひょうじ';
+      }
+    }
+
+    function renderContainers() {
+      renderTank();
+      renderCups();
+      updateCupCountButtons();
+    }
+
+    // タンク（大きな容器）のレンダリング
+    function renderTank() {
+      const container = document.getElementById('tank-container');
+      container.innerHTML = '';
+
+      const isSelected = selectedType === 'tank';
+      const tankCard = document.createElement('div');
+      tankCard.className = `flex flex-col items-center w-[220px] sm:w-[320px] transition-all duration-300`;
+
+      const label = document.createElement('div');
+      label.className = `font-extrabold text-sm sm:text-base mb-2 px-4 py-1 rounded-full ${isSelected ? 'bg-amber-500 text-white shadow' : 'bg-slate-200 text-slate-700'}`;
+      label.textContent = `大きな容器`;
+
+      const wrapper = document.createElement('div');
+      wrapper.onclick = () => handleContainerClick('tank', null);
+      wrapper.className = `relative w-full h-[160px] sm:h-[180px] glass-cup rounded-b-xl rounded-t-sm cursor-pointer overflow-hidden transition-all duration-200 ${isSelected ? 'selected-cup' : 'hover:scale-[1.02]'}`;
+
+      // 目盛り線
+      const scaleContainer = document.createElement('div');
+      scaleContainer.className = 'absolute inset-0 pointer-events-none flex flex-col-reverse justify-between py-2 px-2 z-10';
+      
+      const numLines = Math.floor(TANK_MAX / 5);
+      for (let i = 1; i <= numLines; i++) {
+        const val = i * 5;
+        const lineRow = document.createElement('div');
+        lineRow.className = 'flex items-center justify-between w-full opacity-60';
+        const isMajor = val % 10 === 0;
+        const line = document.createElement('div');
+        line.className = `h-[1.5px] bg-slate-500 ${isMajor ? 'w-6' : 'w-3'}`;
+        const num = document.createElement('span');
+        num.className = `text-[10px] sm:text-xs font-black ${isMajor ? 'text-slate-800 font-bold' : 'text-slate-400'}`;
+        num.textContent = isMajor ? val : '';
+        lineRow.appendChild(line);
+        lineRow.appendChild(num);
+        scaleContainer.appendChild(lineRow);
+      }
+
+      const liquidHeightPercent = (tank / TANK_MAX) * 100;
+      const liquid = document.createElement('div');
+      liquid.className = 'liquid absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-600 via-cyan-400 to-teal-300 overflow-hidden';
+      liquid.style.height = `${liquidHeightPercent}%`;
+
+      if (tank > 0) {
+        const wave = document.createElement('div');
+        wave.className = 'wave-effect';
+        liquid.appendChild(wave);
+      }
+
+      const amountDisplay = document.createElement('div');
+      amountDisplay.className = 'absolute bottom-2 left-0 right-0 text-center font-black text-white text-shadow drop-shadow-md text-xl z-10 pointer-events-none';
+      amountDisplay.innerHTML = `${tank} <span class="text-sm font-normal">${unit}</span>`;
+
+      wrapper.appendChild(scaleContainer);
+      wrapper.appendChild(liquid);
+      wrapper.appendChild(amountDisplay);
+
+      const selectBadge = document.createElement('div');
+      selectBadge.className = 'mt-2 h-6 flex items-center justify-center';
+      if (isSelected) {
+        selectBadge.innerHTML = `<span class="bg-amber-400 text-amber-950 text-xs font-bold px-2 py-0.5 rounded-full animate-bounce">うつす元</span>`;
+      } else if (selectedType !== null) {
+        selectBadge.innerHTML = `<button class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow transition">ここへうつす</button>`;
+      }
+
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'flex items-center gap-4 mt-2 w-full justify-center';
+      const minusBtn = document.createElement('button');
+      minusBtn.onclick = (e) => { e.stopPropagation(); addWater('tank', null, -1); };
+      minusBtn.className = 'w-10 h-10 bg-rose-100 hover:bg-rose-200 active:scale-90 text-rose-600 font-black rounded-full shadow-sm flex items-center justify-center text-xl border border-rose-200 transition disabled:opacity-30';
+      minusBtn.textContent = '−';
+      minusBtn.disabled = tank <= 0;
+      const plusBtn = document.createElement('button');
+      plusBtn.onclick = (e) => { e.stopPropagation(); addWater('tank', null, 1); };
+      plusBtn.className = 'w-10 h-10 bg-emerald-100 hover:bg-emerald-200 active:scale-90 text-emerald-600 font-black rounded-full shadow-sm flex items-center justify-center text-xl border border-emerald-200 transition disabled:opacity-30';
+      plusBtn.textContent = '＋';
+      plusBtn.disabled = tank >= TANK_MAX;
+
+      btnGroup.appendChild(minusBtn);
+      btnGroup.appendChild(plusBtn);
+
+      tankCard.appendChild(label);
+      tankCard.appendChild(wrapper);
+      tankCard.appendChild(selectBadge);
+      tankCard.appendChild(btnGroup);
+
+      container.appendChild(tankCard);
+    }
+
+    // コップのレンダリング
+    function renderCups() {
+      const container = document.getElementById('cups-container');
+      container.innerHTML = '';
+
+      cups.forEach((amount, index) => {
+        const isSelected = selectedType === 'cup' && selectedIndex === index;
+
+        const cupCard = document.createElement('div');
+        cupCard.className = `flex flex-col items-center flex-1 min-w-[100px] max-w-[140px] sm:max-w-[160px] transition-all duration-300`;
+
+        const label = document.createElement('div');
+        label.className = `font-extrabold text-xs sm:text-sm mb-2 px-2.5 py-0.5 rounded-full ${isSelected ? 'bg-amber-500 text-white shadow' : 'bg-slate-200 text-slate-700'}`;
+        label.textContent = `コップ ${String.fromCharCode(65 + index)}`;
+
+        const cupWrapper = document.createElement('div');
+        cupWrapper.onclick = () => handleContainerClick('cup', index);
+        cupWrapper.className = `relative w-full h-[240px] sm:h-[260px] glass-cup rounded-b-3xl rounded-t-lg cursor-pointer overflow-hidden transition-all duration-200 ${isSelected ? 'selected-cup' : 'hover:scale-[1.02]'}`;
+        
+        const scaleContainer = document.createElement('div');
+        scaleContainer.className = 'absolute inset-0 pointer-events-none flex flex-col-reverse justify-between py-3 px-2 z-10';
+        
+        for (let i = 1; i <= MAX_CAPACITY; i++) {
+          const lineRow = document.createElement('div');
+          lineRow.className = 'flex items-center justify-between w-full opacity-60';
+          const isMajor = i === 5 || i === 10;
+          const line = document.createElement('div');
+          line.className = `h-[1.5px] bg-slate-500 ${isMajor ? 'w-4' : 'w-2.5'}`;
+          const num = document.createElement('span');
+          num.className = `text-[10px] sm:text-xs font-black ${isMajor ? 'text-slate-800 font-bold' : 'text-slate-400'}`;
+          num.textContent = isMajor ? i : '';
+          lineRow.appendChild(line);
+          lineRow.appendChild(num);
+          scaleContainer.appendChild(lineRow);
+        }
+
+        const liquidHeightPercent = (amount / MAX_CAPACITY) * 100;
+        const liquid = document.createElement('div');
+        liquid.className = 'liquid absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-600 via-sky-500 to-sky-400 overflow-hidden';
+        liquid.style.height = `${liquidHeightPercent}%`;
+
+        if (amount > 0) {
+          const wave = document.createElement('div');
+          wave.className = 'wave-effect';
+          liquid.appendChild(wave);
+        }
+
+        const amountDisplay = document.createElement('div');
+        amountDisplay.className = 'absolute bottom-2 left-0 right-0 text-center font-black text-white text-shadow drop-shadow-md text-lg z-10 pointer-events-none';
+        amountDisplay.innerHTML = `${amount} <span class="text-xs font-normal">${unit}</span>`;
+
+        cupWrapper.appendChild(scaleContainer);
+        cupWrapper.appendChild(liquid);
+        cupWrapper.appendChild(amountDisplay);
+
+        const selectBadge = document.createElement('div');
+        selectBadge.className = 'mt-2 h-6 flex items-center justify-center';
+        if (isSelected) {
+          selectBadge.innerHTML = `<span class="bg-amber-400 text-amber-950 text-xs font-bold px-2 py-0.5 rounded-full animate-bounce">うつす元</span>`;
+        } else if (selectedType !== null) {
+          selectBadge.innerHTML = `<button class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow transition">ここへうつす</button>`;
+        }
+
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'flex items-center gap-2 mt-2 w-full justify-center';
+
+        const minusBtn = document.createElement('button');
+        minusBtn.onclick = (e) => { e.stopPropagation(); addWater('cup', index, -1); };
+        minusBtn.className = 'w-8 h-8 sm:w-9 sm:h-9 bg-rose-100 hover:bg-rose-200 active:scale-90 text-rose-600 font-black rounded-full shadow-sm flex items-center justify-center text-lg border border-rose-200 transition disabled:opacity-30';
+        minusBtn.textContent = '−';
+        minusBtn.disabled = amount <= 0;
+
+        const plusBtn = document.createElement('button');
+        plusBtn.onclick = (e) => { e.stopPropagation(); addWater('cup', index, 1); };
+        plusBtn.className = 'w-8 h-8 sm:w-9 sm:h-9 bg-emerald-100 hover:bg-emerald-200 active:scale-90 text-emerald-600 font-black rounded-full shadow-sm flex items-center justify-center text-lg border border-emerald-200 transition disabled:opacity-30';
+        plusBtn.textContent = '＋';
+        plusBtn.disabled = amount >= MAX_CAPACITY;
+
+        btnGroup.appendChild(minusBtn);
+        btnGroup.appendChild(plusBtn);
+
+        cupCard.appendChild(label);
+        cupCard.appendChild(cupWrapper);
+        cupCard.appendChild(selectBadge);
+        cupCard.appendChild(btnGroup);
+
+        container.appendChild(cupCard);
+      });
+    }
+
+    // 容器クリックのハンドラ（移し替え機能）
+    function handleContainerClick(type, index) {
+      if (selectedType === null) {
+        // 選択
+        const amount = type === 'tank' ? tank : cups[index];
+        if (amount > 0) {
+          selectedType = type;
+          selectedIndex = index;
+          updateGuideMessage(`${type === 'tank' ? '大きな容器' : 'コップ ' + String.fromCharCode(65 + index)} をえらんだよ！移動先の容器をクリックしてね。`);
+        } else {
+          updateGuideMessage(`水がからっぽの容器からは移せないよ。`);
+        }
+      } else if (selectedType === type && selectedIndex === index) {
+        // 同じ容器をクリックした場合は選択解除
+        selectedType = null;
+        selectedIndex = null;
+        updateGuideMessage(`選択を解除したよ。容器をクリックして選んでね。`);
+      } else {
+        // 移し替え実行
+        let srcAmount = selectedType === 'tank' ? tank : cups[selectedIndex];
+        let targetMax = type === 'tank' ? TANK_MAX : MAX_CAPACITY;
+        let targetAmount = type === 'tank' ? tank : cups[index];
+
+        if (srcAmount > 0 && targetAmount < targetMax) {
+          if (selectedType === 'tank') tank--;
+          else cups[selectedIndex]--;
+
+          if (type === 'tank') tank++;
+          else cups[index]++;
+          
+          srcAmount--;
+          if (srcAmount === 0) {
+            selectedType = null;
+            selectedIndex = null;
+            updateGuideMessage(`1${unit} 移したよ！`);
+          } else {
+            updateGuideMessage(`1${unit} 移したよ！続けてクリックでさらに移せるよ。`);
+          }
+
+          checkSuccess();
+        } else if (targetAmount >= targetMax) {
+          updateGuideMessage(`移動先の容器がいっぱいです！`);
+        }
+      }
+
+      renderContainers();
+      updateCalcInfo();
+    }
+
+    // 水の追加 / 削減 (＋/ーボタン)
+    function addWater(type, index, delta) {
+      if (type === 'tank') {
+        const nextAmount = tank + delta;
+        if (nextAmount >= 0 && nextAmount <= TANK_MAX) tank = nextAmount;
+      } else {
+        const nextAmount = cups[index] + delta;
+        if (nextAmount >= 0 && nextAmount <= MAX_CAPACITY) cups[index] = nextAmount;
+      }
+      renderContainers();
+      updateCalcInfo();
+      checkSuccess();
+    }
+
+    // からっぽにする（リセット）
+    function resetAll() {
+      cups = cups.map(() => 0);
+      tank = 0;
+      selectedType = null;
+      selectedIndex = null;
+      hideSuccess();
+      updateGuideMessage(`すべての容器をからっぽにしたよ。`);
+      renderContainers();
+      updateCalcInfo();
+    }
+
+    // 「もんだいをだす」機能
+    function generateProblem() {
+      selectedType = null;
+      selectedIndex = null;
+      tank = 0;
+      hideSuccess();
+
+      const targetAvg = Math.floor(Math.random() * 7) + 2; 
+      const totalWater = targetAvg * cupCount;
+
+      cups = Array(cupCount).fill(targetAvg);
+
+      const shuffleSteps = cupCount * 4;
+      for (let i = 0; i < shuffleSteps; i++) {
+        const fromIdx = Math.floor(Math.random() * cupCount);
+        const toIdx = Math.floor(Math.random() * cupCount);
+        
+        if (fromIdx !== toIdx) {
+          if (cups[fromIdx] > 1 && cups[toIdx] < MAX_CAPACITY - 1) {
+            cups[fromIdx] -= 1;
+            cups[toIdx] += 1;
+          }
+        }
+      }
+
+      const isAllSame = cups.every(val => val === cups[0]);
+      if (isAllSame) {
+        cups[0] += 1;
+        cups[1] -= 1;
+      }
+
+      updateGuideMessage(`🎲 新しいもんだい！ 水を移しかえて「同じかさ」にそろえてね！`);
+      renderContainers();
+      updateCalcInfo();
+    }
+
+    // 「じどうで同じにする」アニメーション（全部集めてから配る）
+    function autoBalance() {
+      const total = tank + cups.reduce((sum, val) => sum + val, 0);
+      if (total === 0) {
+        updateGuideMessage(`水がはいっていないよ！まずは水をそそいでね。`);
+        return;
+      }
+
+      const avg = total / cupCount;
+      if (!Number.isInteger(avg)) {
+        updateGuideMessage(`⚠️ いまの合計（${total}）はコップの数（${cupCount}）で割り切れないよ！＋や−で調整してね。`);
+        return;
+      }
+
+      selectedType = null;
+      selectedIndex = null;
+      hideSuccess();
+      
+      updateGuideMessage(`✨ すべての水を大きな容器に集めてから、同じ量ずつ分けるよ！`);
+
+      const timer = setInterval(() => {
+        // 1. 全部タンクに集める
+        let cupsHasWater = cups.some(v => v > 0);
+        if (cupsHasWater) {
+          for (let i = 0; i < cups.length; i++) {
+            if (cups[i] > 0) {
+              // 少しずつ移すと遅いので、1回で2単位くらい移すか、1ずつで高速に回す
+              cups[i]--;
+              tank++;
+              break; 
+            }
+          }
+        } else {
+          // 2. タンクからコップへ均等に配る
+          let targetAvg = total / cupCount;
+          let cupsNeedWater = cups.some(v => v < targetAvg);
+          if (cupsNeedWater && tank > 0) {
+            for (let i = 0; i < cups.length; i++) {
+              if (cups[i] < targetAvg) {
+                cups[i]++;
+                tank--;
+                break;
+              }
+            }
+          } else {
+            clearInterval(timer);
+            checkSuccess();
+          }
+        }
+        renderContainers();
+        updateCalcInfo();
+      }, 50); // アニメーション速度
+    }
+
+    // 計算情報・式の更新
+    function updateCalcInfo() {
+      const total = tank + cups.reduce((sum, val) => sum + val, 0);
+      const avg = cupCount > 0 ? (total / cupCount) : 0;
+
+      document.getElementById('calc-total').textContent = total;
+      document.getElementById('calc-count').textContent = cupCount;
+      
+      const avgElement = document.getElementById('calc-avg');
+      if (Number.isInteger(avg)) {
+        avgElement.textContent = avg;
+      } else {
+        avgElement.textContent = avg.toFixed(1) + '...';
+      }
+    }
+
+    // 完成したか判定
+    function checkSuccess() {
+      const firstVal = cups[0];
+      const isAllSame = cups.every(val => val === firstVal);
+
+      if (tank === 0 && isAllSame && firstVal > 0) {
+        document.getElementById('success-amount').textContent = firstVal;
+        document.getElementById('success-banner').classList.remove('hidden');
+        updateGuideMessage(`🌟 すごい！すべてのコップが【 ${firstVal} ${unit} 】で同じ量になったよ！`);
+        triggerConfetti();
+      } else {
+        hideSuccess();
+      }
+    }
+
+    function hideSuccess() {
+      document.getElementById('success-banner').classList.add('hidden');
+    }
+
+    function updateGuideMessage(msg) {
+      document.getElementById('guide-message').textContent = msg;
+    }
+
+    function updateCupCountButtons() {
+      document.querySelectorAll('.cup-cnt-btn').forEach(btn => {
+        const count = parseInt(btn.getAttribute('data-count'));
+        if (count === cupCount) {
+          btn.className = 'cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base bg-sky-600 text-white shadow-sm';
+        } else {
+          btn.className = 'cup-cnt-btn px-3 py-1.5 rounded-lg font-bold transition text-sm sm:text-base bg-transparent text-slate-600 hover:bg-slate-200';
+        }
+      });
+    }
+
+    // --- 紙吹雪（Confetti）エフェクト自作実装 ---
+    let confettiParticles = [];
+    let confettiCanvas, confettiCtx;
+
+    function initConfetti() {
+      confettiCanvas = document.getElementById('confetti-canvas');
+      confettiCtx = confettiCanvas.getContext('2d');
+      resizeConfettiCanvas();
+      window.addEventListener('resize', resizeConfettiCanvas);
+    }
+
+    function resizeConfettiCanvas() {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+
+    function triggerConfetti() {
+      confettiParticles = [];
+      const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#f43f5e'];
+      for (let i = 0; i < 90; i++) {
+        confettiParticles.push({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 3,
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.7) * 14,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 8 + 6,
+          rotation: Math.random() * 360,
+          rSpeed: (Math.random() - 0.5) * 10
+        });
+      }
+      requestAnimationFrame(animateConfetti);
+    }
+
+    function animateConfetti() {
+      if (confettiParticles.length === 0 || !confettiCtx) return;
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+      confettiParticles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.3; // 重力
+        p.rotation += p.rSpeed;
+
+        confettiCtx.save();
+        confettiCtx.translate(p.x, p.y);
+        confettiCtx.rotate((p.rotation * Math.PI) / 180);
+        confettiCtx.fillStyle = p.color;
+        confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        confettiCtx.restore();
+
+        if (p.y > window.innerHeight) {
+          confettiParticles.splice(index, 1);
+        }
+      });
+
+      if (confettiParticles.length > 0) {
+        requestAnimationFrame(animateConfetti);
+      }
+    }
+  </script>
+</body>
+</html>
